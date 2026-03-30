@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fulcrum – Coating Estimate</title>
+    <style>
+        :root {
+            --bg: #2c2825;
+            --surface: #3d3832;
+            --surface2: #4a443c;
+            --accent: #8b7355;
+            --accent-dim: #6b5a45;
+            --text: #d4cfc4;
+            --text-muted: #9a9288;
+            --success: #7d9c6a;
+            --border: #5c5549;
+            --rust: #a0522d;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Courier New', 'Consolas', monospace; margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; background-image: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, transparent 50%); }
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+        h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 8px 0; color: var(--text); letter-spacing: 0.05em; text-transform: uppercase; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+        .nav-bar { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--border); }
+        .nav-bar a { color: var(--accent); text-decoration: none; padding: 8px 16px; border: 1px solid var(--border); background: var(--surface); margin-right: 8px; font-size: 13px; transition: all 0.2s; }
+        .nav-bar a:hover { background: var(--surface2); color: var(--text); }
+        .nav-bar a.active { background: var(--surface2); color: var(--text); border-color: var(--accent); font-weight: 600; }
+        .card { background: var(--surface); border: 2px solid var(--border); padding: 20px; margin-bottom: 20px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); }
+        .card h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px 0; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.03em; }
+        input[type="file"] { margin: 8px 0; color: var(--text-muted); padding: 8px; border: 1px solid var(--border); background: var(--bg); width: 100%; max-width: 400px; cursor: pointer; }
+        input[type="file"]::file-selector-button { padding: 6px 12px; background: var(--surface2); color: var(--text); border: 1px solid var(--border); cursor: pointer; font-family: inherit; margin-right: 12px; }
+        input[type="file"]::file-selector-button:hover { background: var(--accent); color: var(--bg); }
+        button, .btn { padding: 10px 18px; font-weight: 600; font-size: 14px; cursor: pointer; border: 2px solid var(--border); background: var(--surface2); color: var(--text); font-family: inherit; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.03em; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent-dim); }
+        .btn-primary:hover:not(:disabled) { background: var(--accent-dim); color: var(--text); transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        #previewRow { margin-top: 12px; animation: fadeIn 0.3s; }
+        #previewRow img { max-width: 300px; border: 2px solid var(--border); display: block; margin-bottom: 12px; }
+        #loading { display: none; margin: 12px 0; color: var(--text-muted); font-style: italic; }
+        #loading.on { display: block; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+        #err { color: var(--rust); margin: 10px 0; display: none; padding: 12px; background: rgba(160, 82, 45, 0.1); border: 1px solid var(--rust); }
+        #err.on { display: block; animation: fadeIn 0.3s; }
+        #estimateSection { display: none; margin-top: 20px; }
+        #estimateSection.on { display: block; animation: fadeIn 0.5s; }
+        .estimate-grid { display: grid; grid-template-columns: 280px 1fr; gap: 20px; margin-bottom: 20px; }
+        @media (max-width: 768px) { .estimate-grid { grid-template-columns: 1fr; } }
+        .estimate-img-container { position: relative; }
+        .estimate-img { width: 100%; border: 2px solid var(--border); display: block; }
+        .img-badge { position: absolute; top: 8px; left: 8px; background: var(--accent); color: var(--bg); padding: 4px 8px; font-size: 11px; font-weight: 600; border: 1px solid var(--accent-dim); }
+        .estimate-details { background: var(--surface2); border: 2px solid var(--border); padding: 18px; }
+        .metric { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); animation: slideIn 0.4s ease-out; }
+        .metric:last-of-type { border-bottom: none; }
+        .metric .label { color: var(--accent); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+        .metric .value { font-size: 17px; line-height: 1.3; color: var(--text); font-weight: 500; }
+        .cost-total { font-size: 22px; font-weight: 700; color: var(--success); margin-top: 16px; padding-top: 16px; border-top: 2px solid var(--border); text-align: center; animation: slideIn 0.6s ease-out; }
+        .cost-total .label { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px; }
+        .estimate-full { background: var(--surface2); border: 2px solid var(--border); padding: 20px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-x: auto; color: var(--text); }
+        .breakdown-section { margin-bottom: 20px; }
+        .breakdown-section h3 { font-size: 14px; font-weight: 600; color: var(--accent); margin: 0 0 12px 0; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+        .cost-line { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px dashed var(--border); }
+        .cost-line:last-child { border-bottom: none; }
+        .cost-line .item { color: var(--text-muted); }
+        .cost-line .amount { color: var(--text); font-weight: 600; }
+        .cost-line.total { font-size: 18px; font-weight: 700; border-top: 2px solid var(--border); margin-top: 8px; padding-top: 12px; }
+        .cost-line.total .item { color: var(--accent); }
+        .cost-line.total .amount { color: var(--success); }
+        .info-box { background: rgba(139, 115, 85, 0.1); border: 1px solid var(--accent); padding: 12px; margin-top: 16px; font-size: 12px; color: var(--text-muted); }
+        .info-box strong { color: var(--accent); }
+        .previous-work-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+        .prev-work-card { background: var(--surface2); border: 2px solid var(--border); overflow: hidden; }
+        .prev-work-card img { width: 100%; height: 120px; object-fit: cover; display: block; }
+        .prev-work-card .caption { padding: 8px; font-size: 11px; color: var(--text-muted); }
+        .prev-work-card .score { font-weight: 600; color: var(--success); font-size: 12px; }
+        .prev-work-card .badge { display: inline-block; background: var(--accent); color: var(--bg); padding: 2px 6px; font-size: 10px; margin-top: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fulcrum – Coating Estimate</h1>
+        <p class="subtitle">ML-powered industrial coating cost analysis. Upload component photo for instant estimate.</p>
+        <div class="nav-bar">
+            <a href="/">Identify</a>
+            <a href="/estimate" class="active">Estimate</a>
+        </div>
+
+        <div class="card">
+            <h2>Upload Component Image</h2>
+            <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:16px">Our ML model analyzes dimensions, detects component type, and calculates coating costs using industrial pricing equations.</p>
+            <div id="uploadArea">
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            <div id="previewRow" style="display:none">
+                <img id="previewImg" alt="Preview">
+                <button type="button" id="estimateBtn" class="btn btn-primary">▶ Generate Estimate</button>
+            </div>
+            <div id="loading">⚙ Analyzing image and calculating estimate...</div>
+            <div id="err"></div>
+        </div>
+
+        <div id="estimateSection">
+            <div class="card">
+                <h2>Estimate Results</h2>
+                <div class="estimate-grid">
+                    <div class="estimate-img-container">
+                        <img id="estimateImg" class="estimate-img" alt="">
+                        <div class="img-badge">ANALYZED</div>
+                    </div>
+                    <div class="estimate-details">
+                        <div class="metric">
+                            <div class="label">Component Type</div>
+                            <div class="value" id="componentType">—</div>
+                        </div>
+                        <div class="metric">
+                            <div class="label">Relative Size Estimate</div>
+                            <div class="value" id="dimensions">—</div>
+                        </div>
+                        <div class="metric">
+                            <div class="label">Estimated Coated Area</div>
+                            <div class="value" id="surfaceArea">—</div>
+                        </div>
+                        <div class="metric">
+                            <div class="label">Recommended Coating</div>
+                            <div class="value" id="coatingType">—</div>
+                        </div>
+                        <div class="metric">
+                            <div class="label">Material Required</div>
+                            <div class="value" id="material">—</div>
+                        </div>
+                        <div class="cost-total">
+                            <div class="label">Prototype Quote</div>
+                            <span id="totalCost">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="breakdown-section">
+                    <h3>Detailed Cost Breakdown</h3>
+                    <div id="costBreakdown">
+                        <div class="cost-line">
+                            <span class="item">Surface Preparation</span>
+                            <span class="amount" id="prepCost">$0.00</span>
+                        </div>
+                        <div class="cost-line">
+                            <span class="item">Primer Application</span>
+                            <span class="amount" id="primerCost">$0.00</span>
+                        </div>
+                        <div class="cost-line">
+                            <span class="item">Coating Application</span>
+                            <span class="amount" id="coatingCost">$0.00</span>
+                        </div>
+                        <div class="cost-line">
+                            <span class="item">Labor & Overhead</span>
+                            <span class="amount" id="laborCost">$0.00</span>
+                        </div>
+                        <div class="cost-line">
+                            <span class="item">Materials (<span id="gallons">0</span> gal)</span>
+                            <span class="amount" id="materialCost">$0.00</span>
+                        </div>
+                        <div class="cost-line total">
+                            <span class="item">TOTAL</span>
+                            <span class="amount" id="totalCost2">$0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="breakdown-section" id="previousWorkSection">
+                    <h3>Our Previous Work — Similar Projects</h3>
+                    <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">Photos from our catalog matching your component. These show similar coated work we've completed.</p>
+                    <div class="previous-work-grid" id="previousWorkGrid"></div>
+                </div>
+
+                <div class="breakdown-section">
+                    <h3>Full Technical Estimate</h3>
+                    <div class="estimate-full" id="estimateContent">Generating detailed estimate...</div>
+                </div>
+
+                <div class="info-box">
+                    <strong>Note:</strong> This estimate is generated from curated bearing labels, catalog matches, and visual heuristics. Use it as a prototype quote and relative size estimate; confirm final measurements and pricing in the field.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var origin = location.origin;
+        var fileInput = document.getElementById('fileInput');
+        var previewRow = document.getElementById('previewRow');
+        var previewImg = document.getElementById('previewImg');
+        var estimateBtn = document.getElementById('estimateBtn');
+        var loading = document.getElementById('loading');
+        var err = document.getElementById('err');
+        var estimateSection = document.getElementById('estimateSection');
+        var estimateImg = document.getElementById('estimateImg');
+        var estimateContent = document.getElementById('estimateContent');
+        var componentType = document.getElementById('componentType');
+        var dimensions = document.getElementById('dimensions');
+        var surfaceArea = document.getElementById('surfaceArea');
+        var coatingType = document.getElementById('coatingType');
+        var material = document.getElementById('material');
+        var totalCost = document.getElementById('totalCost');
+        var totalCost2 = document.getElementById('totalCost2');
+        var prepCost = document.getElementById('prepCost');
+        var primerCost = document.getElementById('primerCost');
+        var coatingCost = document.getElementById('coatingCost');
+        var laborCost = document.getElementById('laborCost');
+        var materialCost = document.getElementById('materialCost');
+        var gallons = document.getElementById('gallons');
+        var selectedFile = null;
+
+        function setErr(msg) {
+            err.textContent = msg || '';
+            err.className = msg ? 'on' : '';
+        }
+
+        function formatCurrency(val) {
+            return '$' + parseFloat(val).toFixed(2);
+        }
+
+        fileInput.onchange = function() {
+            var f = this.files[0];
+            if (!f) return;
+            selectedFile = f;
+            setErr('');
+            estimateSection.className = '';
+            previewImg.src = URL.createObjectURL(f);
+            previewRow.style.display = 'block';
+        };
+
+        estimateBtn.onclick = function() {
+            if (!selectedFile) return;
+            loading.className = 'on';
+            setErr('');
+            estimateSection.className = '';
+            estimateBtn.disabled = true;
+            estimateBtn.textContent = '⚙ Processing...';
+            
+            var fd = new FormData();
+            fd.append('image', selectedFile);
+            
+            fetch(origin + '/api/estimate', { method: 'POST', body: fd })
+                .then(function(r) { 
+                    if (!r.ok) throw new Error('Server error: ' + r.status);
+                    return r.json(); 
+                })
+                .then(function(data) {
+                    loading.className = '';
+                    estimateBtn.disabled = false;
+                    estimateBtn.textContent = '▶ Generate Estimate';
+                    
+                    if (data.error) {
+                        setErr('Error: ' + data.error);
+                        return;
+                    }
+                    
+                    // Display image
+                    var imgUrl = data.uploaded_image ? origin + data.uploaded_image : previewImg.src;
+                    estimateImg.src = imgUrl;
+                    
+                    // Populate metrics
+                    componentType.textContent = (data.component_type || 'general').replace(/_/g, ' ').toUpperCase();
+                    
+                    if (data.dimensions) {
+                        dimensions.textContent = data.dimensions.width_inches + '" W × ' + data.dimensions.height_inches + '" H (' + data.dimensions.complexity.toUpperCase() + ' complexity)';
+                    } else {
+                        dimensions.textContent = '—';
+                    }
+                    
+                    surfaceArea.textContent = data.surface_area_sqft ? data.surface_area_sqft + ' sq ft' : '—';
+                    
+                    if (data.coating_details) {
+                        coatingType.textContent = data.coating_type + ' (' + data.coating_details.durability_years + 'yr, ' + data.coating_details.cure_time_hours + 'h cure)';
+                    } else {
+                        coatingType.textContent = data.coating_type || '—';
+                    }
+                    
+                    // Materials
+                    if (data.costs && data.costs.gallons_needed) {
+                        material.textContent = data.costs.gallons_needed + ' gallons @ ' + formatCurrency(data.costs.material_cost / data.costs.gallons_needed) + '/gal';
+                        gallons.textContent = data.costs.gallons_needed;
+                    } else {
+                        material.textContent = '—';
+                        gallons.textContent = '0';
+                    }
+                    
+                    // Costs
+                    if (data.costs) {
+                        var c = data.costs;
+                        prepCost.textContent = formatCurrency(c.prep_cost);
+                        primerCost.textContent = formatCurrency(c.primer_cost);
+                        coatingCost.textContent = formatCurrency(c.coating_cost);
+                        laborCost.textContent = formatCurrency(c.labor_cost);
+                        materialCost.textContent = formatCurrency(c.material_cost);
+                        totalCost.textContent = formatCurrency(c.total);
+                        totalCost2.textContent = formatCurrency(c.total);
+                    } else {
+                        prepCost.textContent = primerCost.textContent = coatingCost.textContent = laborCost.textContent = materialCost.textContent = totalCost.textContent = totalCost2.textContent = '$0.00';
+                    }
+                    
+                    // Full estimate text
+                    var text = data.estimate_text || 'No detailed estimate generated.';
+                    estimateContent.textContent = text;
+
+                    // Previous work gallery (our catalog matches)
+                    var grid = document.getElementById('previousWorkGrid');
+                    var prev = data.previous_work || [];
+                    if (prev.length > 0) {
+                        grid.innerHTML = prev.map(function(p) {
+                            var u = (p.image_url || '').indexOf('http') === 0 ? p.image_url : origin + (p.image_url || '');
+                            var pct = ((p.similarity_score || 0) * 100).toFixed(0);
+                            var badge = (p.bearing_type || '').replace(/_/g, ' ');
+                            var desc = (p.description || 'Similar project').slice(0, 50);
+                            return '<div class="prev-work-card"><img src="' + u + '" alt=""><div class="caption"><span class="score">' + pct + '% match</span><br><span class="badge">' + badge + '</span><br>' + desc + '</div></div>';
+                        }).join('');
+                    } else {
+                        grid.innerHTML = '<p style="color:var(--text-muted);font-size:12px;">No similar projects in catalog yet. Run <code>python download_industrial_images.py</code> and <code>python seed_bearing_dataset.py</code> to build the catalog.</p>';
+                    }
+                    
+                    // Show results with smooth animation
+                    estimateSection.className = 'on';
+                    
+                    // Scroll to results
+                    setTimeout(function() {
+                        estimateSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 100);
+                })
+                .catch(function(e) {
+                    loading.className = '';
+                    estimateBtn.disabled = false;
+                    estimateBtn.textContent = '▶ Generate Estimate';
+                    setErr(e.message || 'Error generating estimate. Please try again.');
+                    console.error('Estimate error:', e);
+                });
+        };
+    </script>
+</body>
+</html>

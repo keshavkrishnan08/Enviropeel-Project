@@ -1,0 +1,11 @@
+{
+  "clip_weight": 0.68,
+  "coated_bonus": 0.02,
+  "family_penalty": 0.0,
+  "family_weight": 0.14,
+  "knn_family_weight": 0.8,
+  "metadata_family_bonus": 0.25,
+  "prompt_weight": 0.2,
+  "top_family_confidence_threshold": 0.55,
+  "visual_weight": 0.06
+}

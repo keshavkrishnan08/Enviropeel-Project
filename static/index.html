@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fulcrum – Bearing Identification</title>
+    <style>
+        :root {
+            --bg: #2c2825;
+            --surface: #3d3832;
+            --surface2: #4a443c;
+            --accent: #8b7355;
+            --accent-dim: #6b5a45;
+            --text: #d4cfc4;
+            --text-muted: #9a9288;
+            --success: #7d9c6a;
+            --border: #5c5549;
+            --rust: #a0522d;
+        }
+        * { box-sizing: border-box; }
+        body { font-family: 'Courier New', 'Consolas', monospace; margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.5; background-image: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, transparent 50%); }
+        .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+        h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 8px 0; color: var(--text); letter-spacing: 0.05em; }
+        .subtitle { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 24px; }
+        .nav-bar { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 2px solid var(--border); }
+        .nav-bar a { color: var(--accent); text-decoration: none; padding: 8px 16px; border: 1px solid var(--border); background: var(--surface); margin-right: 8px; font-size: 13px; transition: all 0.2s; }
+        .nav-bar a:hover { background: var(--surface2); color: var(--text); }
+        .nav-bar a.active { background: var(--surface2); color: var(--text); border-color: var(--accent); font-weight: 600; }
+        .card { background: var(--surface); border: 2px solid var(--border); padding: 20px; margin-bottom: 20px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); }
+        .card h2 { font-size: 1rem; font-weight: 600; margin: 0 0 12px 0; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        input[type="file"] { margin: 8px 0; color: var(--text-muted); }
+        button, .btn { padding: 10px 18px; font-weight: 600; font-size: 14px; cursor: pointer; border: 2px solid var(--border); background: var(--surface2); color: var(--text); font-family: inherit; }
+        .btn-primary { background: var(--accent); color: var(--bg); border-color: var(--accent-dim); }
+        .btn-primary:hover { background: var(--accent-dim); color: var(--text); }
+        .btn-secondary { background: var(--surface2); color: var(--text); }
+        .btn-secondary:hover { background: var(--border); }
+        #previewRow { margin-top: 12px; }
+        #previewRow img { max-width: 220px; border: 2px solid var(--border); }
+        #loading { display: none; margin: 12px 0; color: var(--text-muted); }
+        #loading.on { display: block; }
+        #err { color: var(--rust); margin: 10px 0; display: none; }
+        #err.on { display: block; }
+        #resultSection { display: none; margin-top: 16px; }
+        #resultSection.on { display: block; }
+        .note-box { background: var(--surface2); border: 1px solid var(--border); padding: 12px; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px; }
+        .note-box strong { color: var(--success); }
+        .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+        .match-card { background: var(--surface2); overflow: hidden; border: 2px solid var(--border); }
+        .match-card img { width: 100%; height: 160px; object-fit: cover; display: block; }
+        .match-card .meta { padding: 12px; }
+        .match-card .score { font-weight: 700; color: var(--success); }
+        .match-card .badge { display: inline-block; font-size: 11px; padding: 2px 6px; margin-top: 4px; background: var(--accent); color: var(--bg); border: 1px solid var(--accent-dim); }
+        .admin { margin-top: 20px; padding-top: 20px; border-top: 2px solid var(--border); }
+        .admin form label { display: block; margin-top: 10px; font-size: 0.9rem; color: var(--text-muted); }
+        .admin form input, .admin form select, .admin form textarea { margin-top: 4px; width: 100%; max-width: 320px; padding: 8px 12px; border: 2px solid var(--border); background: var(--bg); color: var(--text); font-family: inherit; }
+        .admin form textarea { min-height: 60px; }
+        .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+        .tab { padding: 8px 16px; background: transparent; color: var(--text-muted); font-size: 14px; cursor: pointer; border: 1px solid var(--border); font-family: inherit; }
+        .tab.active { background: var(--surface2); color: var(--text); border-color: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .catalog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+        .catalog-item { background: var(--surface2); overflow: hidden; border: 2px solid var(--border); }
+        .catalog-item img { width: 100%; height: 100px; object-fit: cover; }
+        .catalog-item .label { padding: 8px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Fulcrum – Bearing Identification</h1>
+        <p class="subtitle">Upload a photo of a bare component to find the closest coated match in our catalog.</p>
+        <div class="nav-bar">
+            <a href="/" class="active">Identify</a>
+            <a href="/estimate">Estimate</a>
+        </div>
+
+        <div class="card">
+            <h2>Identify Bearing</h2>
+            <div class="note-box"><strong>Bare → Coated:</strong> Take a photo of an uncovered bearing or coated component. We'll match it to the closest reviewed catalog example.</div>
+            <div id="uploadArea">
+                <input type="file" id="fileInput" accept="image/*">
+            </div>
+            <div id="previewRow" style="display:none">
+                <img id="previewImg" alt="Preview">
+                <br>
+                <button type="button" id="findBtn" class="btn btn-primary">Find match</button>
+            </div>
+            <div id="loading">Finding coated match...</div>
+            <div id="err"></div>
+            <div id="resultSection">
+                <p><b>Your bare bearing → Coated match</b></p>
+                <div class="results" id="resultGrid"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Coated Catalog (Project Image Downloads)</h2>
+            <div class="tabs">
+                <button class="tab active" data-tab="all">All</button>
+                <button class="tab" data-tab="pillow_block">Pillow Block</button>
+                <button class="tab" data-tab="flange">Flange</button>
+                <button class="tab" data-tab="gearbox">Gearbox</button>
+                <button class="tab" data-tab="support_pedestal">Support Base</button>
+            </div>
+            <div class="tab-content active">
+                <div class="catalog-grid" id="catalogGrid"></div>
+            </div>
+        </div>
+
+        <div class="card admin">
+            <h2>Add to Database</h2>
+            <p style="color:var(--text-muted);font-size:0.9rem">Add more coated or naked bearing photos. You can add more photos to this album over time.</p>
+            <form id="addForm">
+                <label>Image: <input type="file" id="refFile" accept="image/*" required></label>
+                <label>Bearing type: <select id="refBearingType"><option value="">—</option><option value="pillow_block">Pillow block</option><option value="flange">Flange</option><option value="gearbox">Gearbox</option><option value="support_pedestal">Support base</option><option value="bearing_housing">Bearing housing</option></select></label>
+                <label>Coating: <select id="refCoating"><option value="">—</option><option value="coated">Coated</option><option value="naked">Naked / Bare</option></select></label>
+                <label>Size (optional): <input type="text" id="refSize" placeholder="e.g. 2 inch, UCP204"></label>
+                <label>Description (optional): <textarea id="refDesc" placeholder="Auto-generated if empty"></textarea></label>
+                <button type="submit" class="btn btn-secondary">Add</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        var origin = location.origin;
+        var fileInput = document.getElementById('fileInput');
+        var previewRow = document.getElementById('previewRow');
+        var previewImg = document.getElementById('previewImg');
+        var findBtn = document.getElementById('findBtn');
+        var loading = document.getElementById('loading');
+        var err = document.getElementById('err');
+        var resultSection = document.getElementById('resultSection');
+        var resultGrid = document.getElementById('resultGrid');
+        var addForm = document.getElementById('addForm');
+        var refFile = document.getElementById('refFile');
+        var refDesc = document.getElementById('refDesc');
+        var refBearingType = document.getElementById('refBearingType');
+        var refCoating = document.getElementById('refCoating');
+        var refSize = document.getElementById('refSize');
+        var selectedFile = null;
+
+        function setErr(msg) {
+            err.textContent = msg || '';
+            err.className = msg ? 'on' : '';
+        }
+
+        fileInput.onchange = function() {
+            var f = this.files[0];
+            if (!f) return;
+            selectedFile = f;
+            setErr('');
+            resultSection.className = '';
+            previewImg.src = URL.createObjectURL(f);
+            previewRow.style.display = 'block';
+        };
+
+        findBtn.onclick = function() {
+            if (!selectedFile) return;
+            loading.className = 'on';
+            setErr('');
+            resultSection.className = '';
+            findBtn.disabled = true;
+            var fd = new FormData();
+            fd.append('image', selectedFile);
+            fetch(origin + '/api/upload', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    loading.className = '';
+                    findBtn.disabled = false;
+                    if (data.error) {
+                        setErr(data.error);
+                        return;
+                    }
+                    var matches = data.matches || [];
+                    if (matches.length === 0) {
+                        resultGrid.innerHTML = '<p style="color:var(--text-muted)">No match (empty catalog?). Add coated bearing images first.</p>';
+                    } else {
+                        var yourUrl = data.uploaded_image ? origin + data.uploaded_image : previewImg.src;
+                        var html = '<div class="match-card"><img src="' + yourUrl + '"><div class="meta">Your photo</div></div>';
+                        matches.forEach(function(m) {
+                            var matchUrl = m.image_url.indexOf('http') === 0 ? m.image_url : origin + m.image_url;
+                            var pct = ((m.similarity_score || 0) * 100).toFixed(1);
+                            var desc = (m.description || 'Coated match').trim();
+                            var badge = m.bearing_type ? '<span class="badge">' + m.bearing_type + '</span>' : '';
+                            html += '<div class="match-card"><img src="' + matchUrl + '"><div class="meta"><span class="score">' + pct + '% match</span>' + badge + '<p style="margin:4px 0 0 0;font-size:12px;color:var(--text-muted)">' + desc + '</p></div></div>';
+                        });
+                        resultGrid.innerHTML = html;
+                    }
+                    resultSection.className = 'on';
+                })
+                .catch(function(e) {
+                    loading.className = '';
+                    findBtn.disabled = false;
+                    setErr(e.message || 'Error');
+                });
+        };
+
+        var currentCatalogTab = 'all';
+        function loadCatalog(type) {
+            currentCatalogTab = type || 'all';
+            var url = origin + '/api/reference/list?coating_status=coated';
+            if (type && type !== 'all') url += '&bearing_type=' + encodeURIComponent(type);
+            fetch(url)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var imgs = data.images || [];
+                    var grid = document.getElementById('catalogGrid');
+                    if (!grid) return;
+                    if (imgs.length === 0) {
+                        grid.innerHTML = '<p style="color:var(--text-muted)">No coated images yet. Run <code>python seed_bearing_dataset.py</code> or add via form below.</p>';
+                        return;
+                    }
+                    grid.innerHTML = imgs.map(function(i) {
+                        var u = (i.url || '').indexOf('http') === 0 ? i.url : origin + (i.url || '');
+                        return '<div class="catalog-item"><img src="' + u + '" alt=""><div class="label">' + (i.bearing_type || '') + ' – ' + (i.description || '').slice(0, 50) + '</div></div>';
+                    }).join('');
+                });
+        }
+
+        document.querySelectorAll('.tab').forEach(function(t) {
+            t.onclick = function() {
+                document.querySelectorAll('.tab').forEach(function(x) { x.classList.remove('active'); });
+                t.classList.add('active');
+                var id = t.getAttribute('data-tab');
+                loadCatalog(id === 'all' ? null : id);
+            };
+        });
+
+        loadCatalog();
+
+        addForm.onsubmit = function(e) {
+            e.preventDefault();
+            if (!refFile.files[0]) return;
+            var fd = new FormData();
+            fd.append('image', refFile.files[0]);
+            fd.append('description', refDesc.value);
+            fd.append('bearing_type', refBearingType.value);
+            fd.append('coating_status', refCoating.value);
+            fd.append('size_info', refSize.value);
+            fetch(origin + '/api/reference/add', { method: 'POST', body: fd })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data.error) setErr(data.error);
+                    else { alert('Added.'); addForm.reset(); loadCatalog(); }
+                })
+                .catch(function(ex) { setErr(ex.message); });
+        };
+    </script>
+</body>
+</html>
