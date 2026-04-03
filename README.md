@@ -59,6 +59,31 @@ python download_industrial_images.py
 
 This is optional. The project can already run without it.
 
+## Vercel Hosting
+
+This project can also be deployed to Vercel with the current interface.
+
+What works on Vercel:
+
+- the current identification page
+- the current estimate page
+- reference image browsing
+- image upload for analysis during a session
+
+What is different on Vercel:
+
+- uploaded files are stored temporarily
+- adding new reference images from the admin form is disabled on hosted deployments
+
+To deploy:
+
+1. Push this repository to GitHub.
+2. Import the repository into Vercel.
+3. Keep the default Python runtime.
+4. Deploy.
+
+The app is configured to use the bundled catalog database and temporary upload storage in a serverless environment.
+
 ## Folder Guide
 
 - `app.py`: starts the website
@@ -89,3 +114,4 @@ If the app still does not start:
 - The app uses the local image catalog to identify parts.
 - The sizing and coating outputs are estimates, not final engineering measurements.
 - Uploaded images are stored locally in the `uploads/` folder while you use the app.
+- On Vercel, uploaded files are temporary and may disappear between requests or deployments.

@@ -35,10 +35,11 @@ def run_tests():
 
     print("\n[2] FLASK APP & ROUTES")
     try:
-        from app import app, matcher
+        from app import app, get_matcher
         with app.app_context():
-            matcher.load_reference_images()
-        print(f"  ✓ Loaded {len(matcher.reference_images)} catalog refs for matching")
+            active_matcher = get_matcher()
+            active_matcher.load_reference_images()
+        print(f"  ✓ Loaded {len(active_matcher.reference_images)} catalog refs for matching")
         with app.test_client() as c:
             r1 = c.get('/')
             r2 = c.get('/estimate')

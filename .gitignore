@@ -1,7 +1,8 @@
 __pycache__/
 *.pyc
 *.db
-instance/
+instance/*
+!instance/image_database.db
 uploads/
 *.sqlite
 *.sqlite3
