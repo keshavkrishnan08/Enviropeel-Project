@@ -38,6 +38,16 @@ class ImageSimilarityMatcher:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
         self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+        # Keep model quality while lowering CPU memory use.
+        if self.device == "cpu":
+            try:
+                self.model = torch.quantization.quantize_dynamic(
+                    self.model,
+                    {torch.nn.Linear},
+                    dtype=torch.qint8,
+                )
+            except Exception:
+                pass
         self.model.to(self.device)
         self.model.eval()
         self.config_path = config_path or os.path.join(
