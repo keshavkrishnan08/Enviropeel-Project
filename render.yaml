@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: enviropeel-project
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --workers 1 --threads 2 --timeout 180
+    healthCheckPath: /health
+    autoDeploy: true

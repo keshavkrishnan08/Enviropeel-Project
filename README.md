@@ -59,30 +59,30 @@ python download_industrial_images.py
 
 This is optional. The project can already run without it.
 
-## Vercel Hosting
+## Recommended Hosting (Render)
 
-This project can also be deployed to Vercel with the current interface.
+This project runs best as a normal Python web service (not serverless) because it uses a heavy ML model.
 
-What works on Vercel:
+### Why Render
 
-- the current identification page
-- the current estimate page
-- reference image browsing
-- image upload for analysis during a session
+- easiest way to host this exact project
+- no need to split frontend and backend
+- gives you one shareable link for your boss
 
-What is different on Vercel:
-
-- uploaded files are stored temporarily
-- adding new reference images from the admin form is disabled on hosted deployments
-
-To deploy:
+### One-time setup
 
 1. Push this repository to GitHub.
-2. Import the repository into Vercel.
-3. Keep the default Python runtime.
-4. Deploy.
+2. Create a Render account and choose **New Web Service**.
+3. Connect your GitHub repo.
+4. Render will detect `render.yaml` automatically.
+5. Deploy and wait until status is **Live**.
+6. Open the Render URL and share it.
 
-The app is configured to use the bundled catalog database and temporary upload storage in a serverless environment.
+### Notes for non-technical use
+
+- First request can be slower because the model loads.
+- The app URL works from phone or desktop browser.
+- If you edit the app and push to GitHub, Render redeploys automatically.
 
 ## Folder Guide
 
