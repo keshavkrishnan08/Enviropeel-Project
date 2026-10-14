@@ -24,7 +24,6 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 ASSETS_PATHS = [
     os.path.join(PROJECT_ROOT, 'assets'),
     os.path.join(PROJECT_ROOT, 'project_image_downloads'),
-    os.path.expanduser('~/.cursor/projects/Users-keshavkrishnan-Fulcrum-MVP/assets'),
 ]
 
 BEARING_IMAGES = [
