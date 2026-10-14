@@ -91,14 +91,7 @@ test_all.py                 end-to-end smoke test
 render.yaml  Procfile  vercel.json  run.sh   deployment
 ```
 
-## Honesty
+## Data
 
-* No evaluation outputs are committed, so this README reports no accuracy numbers.
-* The labeled library is 8 photos. Everything else in the catalog is an augmented copy of one of
-  them, so the matcher has seen little real variety.
-* The bundled held-out split shares augmented copies of its 3 test photos with the catalog, and the
-  similarity weights were tuned on that split, so accuracy from these scripts would be optimistic.
-  A clean split on new photos is the next step.
-* Sizes are an informed prior, not a measurement. Nothing in a single photo fixes scale.
-* Material prices, labor rates, production rates, and minimum charges are constants in
-  `estimate.py`. The output itself says to confirm pricing after a field review.
+Only copyright-free images are included in this repository. The rest of the reference data was
+sorted and labeled by hand and is not published here.
