@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Fulcrum – Bearing Identification</title>
+    <title>Fulcrum, Bearing Identification</title>
     <style>
         :root {
             --bg: #2c2825;
@@ -67,7 +67,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Fulcrum – Bearing Identification</h1>
+        <h1>Fulcrum, Bearing Identification</h1>
         <p class="subtitle">Upload a photo of a bare component to find the closest coated match in our catalog.</p>
         <div class="nav-bar">
             <a href="/" class="active">Identify</a>
@@ -112,8 +112,8 @@
             <p style="color:var(--text-muted);font-size:0.9rem">Add more coated or naked bearing photos. You can add more photos to this album over time.</p>
             <form id="addForm">
                 <label>Image: <input type="file" id="refFile" accept="image/*" required></label>
-                <label>Bearing type: <select id="refBearingType"><option value="">—</option><option value="pillow_block">Pillow block</option><option value="flange">Flange</option><option value="gearbox">Gearbox</option><option value="support_pedestal">Support base</option><option value="bearing_housing">Bearing housing</option></select></label>
-                <label>Coating: <select id="refCoating"><option value="">—</option><option value="coated">Coated</option><option value="naked">Naked / Bare</option></select></label>
+                <label>Bearing type: <select id="refBearingType"><option value="">-</option><option value="pillow_block">Pillow block</option><option value="flange">Flange</option><option value="gearbox">Gearbox</option><option value="support_pedestal">Support base</option><option value="bearing_housing">Bearing housing</option></select></label>
+                <label>Coating: <select id="refCoating"><option value="">-</option><option value="coated">Coated</option><option value="naked">Naked / Bare</option></select></label>
                 <label>Size (optional): <input type="text" id="refSize" placeholder="e.g. 2 inch, UCP204"></label>
                 <label>Description (optional): <textarea id="refDesc" placeholder="Auto-generated if empty"></textarea></label>
                 <button type="submit" class="btn btn-secondary">Add</button>
@@ -212,7 +212,7 @@
                     }
                     grid.innerHTML = imgs.map(function(i) {
                         var u = (i.url || '').indexOf('http') === 0 ? i.url : origin + (i.url || '');
-                        return '<div class="catalog-item"><img src="' + u + '" alt=""><div class="label">' + (i.bearing_type || '') + ' – ' + (i.description || '').slice(0, 50) + '</div></div>';
+                        return '<div class="catalog-item"><img src="' + u + '" alt=""><div class="label">' + (i.bearing_type || '') + ', ' + (i.description || '').slice(0, 50) + '</div></div>';
                     }).join('');
                 });
         }

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Fulcrum – Coating Estimate</title>
+    <title>Fulcrum, Coating Estimate</title>
     <style>
         :root {
             --bg: #2c2825;
@@ -80,7 +80,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>Fulcrum – Coating Estimate</h1>
+        <h1>Fulcrum, Coating Estimate</h1>
         <p class="subtitle">ML-powered industrial coating cost analysis. Upload component photo for instant estimate.</p>
         <div class="nav-bar">
             <a href="/">Identify</a>
@@ -112,23 +112,23 @@
                     <div class="estimate-details">
                         <div class="metric">
                             <div class="label">Component Type</div>
-                            <div class="value" id="componentType">—</div>
+                            <div class="value" id="componentType">-</div>
                         </div>
                         <div class="metric">
                             <div class="label">Relative Size Estimate</div>
-                            <div class="value" id="dimensions">—</div>
+                            <div class="value" id="dimensions">-</div>
                         </div>
                         <div class="metric">
                             <div class="label">Estimated Coated Area</div>
-                            <div class="value" id="surfaceArea">—</div>
+                            <div class="value" id="surfaceArea">-</div>
                         </div>
                         <div class="metric">
                             <div class="label">Recommended Coating</div>
-                            <div class="value" id="coatingType">—</div>
+                            <div class="value" id="coatingType">-</div>
                         </div>
                         <div class="metric">
                             <div class="label">Material Required</div>
-                            <div class="value" id="material">—</div>
+                            <div class="value" id="material">-</div>
                         </div>
                         <div class="cost-total">
                             <div class="label">Prototype Quote</div>
@@ -168,7 +168,7 @@
                 </div>
 
                 <div class="breakdown-section" id="previousWorkSection">
-                    <h3>Our Previous Work — Similar Projects</h3>
+                    <h3>Our Previous Work, Similar Projects</h3>
                     <p style="color:var(--text-muted);font-size:12px;margin-bottom:12px;">Photos from our catalog matching your component. These show similar coated work we've completed.</p>
                     <div class="previous-work-grid" id="previousWorkGrid"></div>
                 </div>
@@ -266,15 +266,15 @@
                     if (data.dimensions) {
                         dimensions.textContent = data.dimensions.width_inches + '" W × ' + data.dimensions.height_inches + '" H (' + data.dimensions.complexity.toUpperCase() + ' complexity)';
                     } else {
-                        dimensions.textContent = '—';
+                        dimensions.textContent = '-';
                     }
                     
-                    surfaceArea.textContent = data.surface_area_sqft ? data.surface_area_sqft + ' sq ft' : '—';
+                    surfaceArea.textContent = data.surface_area_sqft ? data.surface_area_sqft + ' sq ft' : '-';
                     
                     if (data.coating_details) {
                         coatingType.textContent = data.coating_type + ' (' + data.coating_details.durability_years + 'yr, ' + data.coating_details.cure_time_hours + 'h cure)';
                     } else {
-                        coatingType.textContent = data.coating_type || '—';
+                        coatingType.textContent = data.coating_type || '-';
                     }
                     
                     // Materials
@@ -282,7 +282,7 @@
                         material.textContent = data.costs.gallons_needed + ' gallons @ ' + formatCurrency(data.costs.material_cost / data.costs.gallons_needed) + '/gal';
                         gallons.textContent = data.costs.gallons_needed;
                     } else {
-                        material.textContent = '—';
+                        material.textContent = '-';
                         gallons.textContent = '0';
                     }
                     
