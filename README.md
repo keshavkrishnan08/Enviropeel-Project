@@ -66,7 +66,7 @@ python app.py                       # http://localhost:5000, estimate page at /e
 python test_all.py                  # database, routes, upload, and estimate smoke test
 ```
 
-The committed database is ready to use. To rebuild or check the catalog: `migrate_db.py`, `assign_splits.py`, `seed_bearing_dataset.py`, `sync_catalog_metadata.py`, `build_robust_catalog.py`, and `download_industrial_images.py` (optional, Wikimedia Commons). `evaluate_dataset.py`, `robust_identification_eval.py`, and `audit_data_leakage.py` score the held-out split. `render.yaml` deploys to Render.
+The committed database is ready to use. To rebuild or check the catalog: `migrate_db.py`, `assign_splits.py`, `seed_bearing_dataset.py`, `sync_catalog_metadata.py`, `build_robust_catalog.py`, and `download_industrial_images.py` (optional, Wikimedia Commons). `evaluate_dataset.py`, `robust_identification_eval.py`, and `audit_data_leakage.py` score the held-out split. `render.yaml` deploys to Render. Git deploys to Vercel are switched off in `vercel.json`: PyTorch alone is larger than Vercel's 500 MB function limit, so the Vercel paths in `runtime_config.py` only apply to a manual deploy with a slimmer model.
 
 ## Layout
 
