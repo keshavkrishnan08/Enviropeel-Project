@@ -270,7 +270,7 @@ def main():
         failed = 0
         for seed, filename, description in DIVERSE_IMAGES:
             filepath = os.path.join(REFERENCE_FOLDER, filename)
-            print(f"\n{filename},{description}")
+            print(f"\n{filename}, {description}")
             if not os.path.exists(filepath):
                 if not download_image(seed, filepath):
                     failed += 1
