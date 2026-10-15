@@ -55,15 +55,17 @@ def get_matcher():
 
 
 def to_jpg(filepath):
+    base, _ = os.path.splitext(filepath)
+    new_path = base + '.jpg'
+    if new_path == filepath:
+        # Already a .jpg: skip decoding the full image just to hand back the same path.
+        return filepath
     try:
         img = Image.open(filepath).convert('RGB')
-        base, _ = os.path.splitext(filepath)
-        new_path = base + '.jpg'
-        if new_path != filepath:
-            img.save(new_path, 'JPEG', quality=92)
-            if os.path.exists(filepath):
-                os.remove(filepath)
-            return new_path
+        img.save(new_path, 'JPEG', quality=92)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+        return new_path
     except Exception:
         pass
     return filepath

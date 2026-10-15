@@ -77,6 +77,42 @@ def ensure_model(path=MODEL_PATH, url=MODEL_URL, sha256=MODEL_SHA256):
         return path
 
 
+def _cgroup_cpu_quota():
+    """CPUs granted by the container's cgroup quota, or None when unlimited or not on Linux."""
+    try:
+        with open("/sys/fs/cgroup/cpu.max", "r", encoding="utf-8") as fh:
+            quota, period = fh.read().split()[:2]
+        if quota != "max":
+            return float(quota) / float(period)
+    except (OSError, ValueError):
+        pass
+    try:
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", "r", encoding="utf-8") as fh:
+            quota = int(fh.read())
+        with open("/sys/fs/cgroup/cpu/cpu.cfs_period_us", "r", encoding="utf-8") as fh:
+            period = int(fh.read())
+        if quota > 0 and period > 0:
+            return quota / period
+    except (OSError, ValueError):
+        pass
+    return None
+
+
+def default_thread_count():
+    """Threads for one inference: the CPUs this process may actually use, at most 4.
+
+    os.cpu_count() reports the host's cores even when a container is limited to a fraction of
+    one, and oversubscribed threads get the container throttled. ORT_NUM_THREADS overrides.
+    """
+    if os.environ.get("ORT_NUM_THREADS"):
+        return max(1, int(os.environ["ORT_NUM_THREADS"]))
+    cpus = len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)
+    quota = _cgroup_cpu_quota()
+    if quota:
+        cpus = min(cpus, max(1, int(quota)))
+    return max(1, min(4, cpus))
+
+
 class ClipImageEncoder:
     def __init__(self, model_path=MODEL_PATH, threads=None):
         import onnxruntime as ort
@@ -86,8 +122,10 @@ class ClipImageEncoder:
         elif not os.path.exists(model_path):
             raise FileNotFoundError(f"{model_path} is missing. Build it with `python export_onnx.py`.")
         options = ort.SessionOptions()
-        options.intra_op_num_threads = threads or min(4, os.cpu_count() or 1)
+        options.intra_op_num_threads = threads or default_thread_count()
         options.inter_op_num_threads = 1
+        # Idle threads sleep instead of spinning, which matters on a shared, quota-limited CPU.
+        options.add_session_config_entry("session.intra_op.allow_spinning", "0")
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
         # One photo per request: release activation memory after each run instead of pooling it,
         # which keeps the process inside a 512 MB instance.
