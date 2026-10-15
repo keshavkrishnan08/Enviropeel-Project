@@ -2,12 +2,10 @@ import json
 import os
 
 import numpy as np
-import torch
-import torch.nn.functional as F
 from PIL import Image
-from transformers import CLIPModel, CLIPProcessor
 
 from catalog_metadata import lookup_reference_profile, normalize_project_label
+from clip_onnx import ClipImageEncoder, load_family_prompt_embeddings, to_rgb
 from database import BEARING_TYPES, ImageRecord
 
 
@@ -34,22 +32,8 @@ FAMILY_PROMPTS = {
 
 class ImageSimilarityMatcher:
     def __init__(self, config_path=None):
-        print("Loading CLIP...")
-        self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-        self.processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
-        # Keep model quality while lowering CPU memory use.
-        if self.device == "cpu":
-            try:
-                self.model = torch.quantization.quantize_dynamic(
-                    self.model,
-                    {torch.nn.Linear},
-                    dtype=torch.qint8,
-                )
-            except Exception:
-                pass
-        self.model.to(self.device)
-        self.model.eval()
+        print("Loading CLIP (ONNX)...")
+        self.encoder = ClipImageEncoder()
         self.config_path = config_path or os.path.join(
             os.path.dirname(os.path.abspath(__file__)),
             "similarity_config.json",
@@ -72,30 +56,17 @@ class ImageSimilarityMatcher:
                 pass
         return config
 
-    def _text_embeddings(self, texts):
-        inp = self.processor(text=texts, return_tensors="pt", padding=True, truncation=True)
-        inp = {k: v.to(self.device) for k, v in inp.items()}
-        with torch.no_grad():
-            feats = self.model.get_text_features(**inp)
-            feats = F.normalize(feats, p=2, dim=1)
-        return feats.cpu().numpy()
-
     def _build_family_prompt_embeddings(self):
-        labels = [family for family in BEARING_TYPES if family in FAMILY_PROMPTS]
-        vectors = self._text_embeddings([FAMILY_PROMPTS[family] for family in labels])
-        return {family: vectors[idx] for idx, family in enumerate(labels)}
+        # Text embeddings for the fixed prompts are precomputed by export_onnx.py,
+        # so the server never loads the CLIP text encoder.
+        prompts = {family: FAMILY_PROMPTS[family] for family in BEARING_TYPES if family in FAMILY_PROMPTS}
+        return load_family_prompt_embeddings(prompts)
 
     def get_image_embedding(self, image_path):
-        img = Image.open(image_path).convert("RGB")
-        inp = self.processor(images=img, return_tensors="pt")
-        inp = {k: v.to(self.device) for k, v in inp.items()}
-        with torch.no_grad():
-            feats = self.model.get_image_features(**inp)
-            feats = F.normalize(feats, p=2, dim=1)
-        return feats.cpu().numpy()[0].astype(np.float32)
+        return self.encoder.embed(Image.open(image_path))
 
     def get_visual_signature(self, image_path):
-        img = Image.open(image_path).convert("RGB").resize((128, 128))
+        img = to_rgb(Image.open(image_path)).resize((128, 128))
         arr = np.asarray(img, dtype=np.float32) / 255.0
         rgb_mean = arr.mean(axis=(0, 1))
         rgb_std = arr.std(axis=(0, 1))

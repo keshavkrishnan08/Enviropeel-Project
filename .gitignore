@@ -4,6 +4,8 @@ __pycache__/
 instance/*
 !instance/image_database.db
 uploads/
+models/*.onnx
+models/*.part
 *.sqlite
 *.sqlite3
 venv/

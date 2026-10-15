@@ -7,7 +7,7 @@
 A coating quote usually starts with someone looking at a photo of the part and deciding what it is, how big it is, how rusted it is, and which system it needs. A generic image captioner is a weak guide to any of that, so this project uses one only as a last resort and treats quoting as retrieval plus arithmetic. It identifies the part by comparing it with labeled photos of coating work already done, borrows the matched jobs' size and type, reads rust and existing paint from pixel color, and then prices the job with explicit labor and material equations that end in a minimum job charge. Every step is visible in the output, so an estimator can see why a number came out the way it did.
 
 ```
-photo  ->  CLIP ViT-B/32 embedding (int8 on CPU)  +  9-number visual signature
+photo  ->  CLIP ViT-B/32 embedding (ONNX Runtime, 8-bit weights)  +  9-number visual signature
        ->  family scores: nearest labeled job per family (0.8) + text prompt per family (0.2)
        ->  rank coated catalog: 0.68 CLIP + 0.06 visual + 0.14 family + bonuses
        ->  top matches  ->  component type by weighted vote
@@ -31,7 +31,7 @@ Match the past job, then do the math in the open.
 | **Identify** | `/`, `POST /api/upload` | Returns the top 3 coated catalog matches with rank score, CLIP similarity, predicted family, and that family's confidence. |
 | **Estimate** | `/estimate`, `POST /api/estimate` | Component type, width x height x depth in inches, condition, complexity, surface area, recommended coating system, cost breakdown, and the 4 most similar past jobs. |
 | **Coated catalog** | `GET /api/coatings/list` | Browse the labeled previous-work library. |
-| **Add a reference** | `POST /api/reference/add` | Saves the photo with its family, coating status, and size note, writes a BLIP caption when no description is given, embeds it with CLIP, and reloads the matcher. Disabled on Vercel. |
+| **Add a reference** | `POST /api/reference/add` | Saves the photo with its family, coating status, and size note, writes a BLIP caption when no description is given and the development requirements are installed, embeds it with CLIP, and reloads the matcher. Disabled on Vercel. |
 | **Health check** | `GET /health` | For the Render deployment. |
 
 The estimate model covers five component families, each with its own geometry, default size, coating system, and minimum charge (`estimate.py`):
@@ -50,33 +50,41 @@ A part read as badly rusted is switched to the zinc-rich system regardless of ty
 
 **Data.** The committed SQLite catalog (`instance/image_database.db`) holds 340 records. The matcher uses only the 136 that are coated and labeled: 8 source photos, six job photos in `reference_images/coatings/` and two Wikimedia Commons bearing photos, each stored with 16 augmented copies (flip, four rotations, three crops, two brightness, two contrast, two blur, two noise levels) from `build_robust_catalog.py`. Of those, 133 sit in the catalog split and 3 in the test split. The other 204 records are unlabeled general photos, mostly placeholder stock images from `populate_diverse_images.py`, and are filtered out of matching. Embeddings are stored in the database, so start-up does not re-encode the catalog.
 
-**Matching.** `similarity.py` loads `openai/clip-vit-base-patch32`, applies dynamic int8 quantization to the linear layers when running on CPU, and L2-normalizes every embedding. Family scores combine the best cosine similarity to each labeled family (weight 0.8) with similarity to a text prompt for that family (weight 0.2), each min-max normalized. The rank score is 0.68 x CLIP cosine + 0.06 x visual-signature similarity + 0.14 x family score, plus 0.25 when a known file label agrees with the candidate's family and 0.02 for coated examples. Weights live in `similarity_config.json`, written by the grid search in `tune_similarity.py`.
+**Matching.** `similarity.py` embeds photos with the image half of `openai/clip-vit-base-patch32`, run on ONNX Runtime through `clip_onnx.py`, and L2-normalizes every embedding. The text prompt for each family is embedded once by `export_onnx.py` and stored in `models/family_prompts.json`, so the server never loads the text encoder. Family scores combine the best cosine similarity to each labeled family (weight 0.8) with similarity to a text prompt for that family (weight 0.2), each min-max normalized. The rank score is 0.68 x CLIP cosine + 0.06 x visual-signature similarity + 0.14 x family score, plus 0.25 when a known file label agrees with the candidate's family and 0.02 for coated examples. Weights live in `similarity_config.json`, written by the grid search in `tune_similarity.py`.
 
 **Condition and size.** `estimate.py` masks pixels by color: rust is red-dominant and saturated, existing coating is the blue, yellow, or white of finished work. More than 10% rust reads as poor and more than 4% as fair; more than 18% painted area reads as an existing coating. Edge density sets complexity. Dimensions start from the component's defaults, scale by matched size labels (large 1.18, small 0.84), object fill, complexity, and aspect ratio, and are clamped to each component's range. Surface area uses component-specific geometry, such as a face, edge, and pipe stub for a flange.
 
 **Pricing.** Prep hours scale with condition (1.35 for poor, 1.15 for fair, 0.92 over an existing coating), primer and finish hours scale with complexity, and finish hours multiply by two coats. Gallons come from each system's coverage rate with an 18% waste factor. If the subtotal lands below the component's minimum charge, labor absorbs the difference.
 
-**Serving.** Flask with SQLAlchemy and SQLite, two static pages, and CORS enabled. Uploads are converted to JPEG. Render runs it under gunicorn with one worker, two threads, and a 180-second timeout because the model is heavy; on Vercel the database is copied to `/tmp` and uploads are written there and not served back.
+**Serving without PyTorch.** `export_onnx.py` exports CLIP's image encoder to ONNX and quantizes its matrix weights to 8 bits in blocks of 128 (`MatMulNBits`), leaving activations in float32. Preprocessing is reimplemented in NumPy and Pillow and matches `CLIPImageProcessor` exactly. On every coated catalog photo the embeddings stay within a cosine of 0.9994 of the original PyTorch model, and the held-out and robustness evaluations (`evaluate_dataset.py`, `robust_identification_eval.py`) give the same answer as before for every photo. Plain dynamic int8 quantization was smaller but drifted to a cosine of 0.93 on some photos. Peak memory for a typical upload fell from 1.6 GB to about 360 MB, which fits the 512 MB Render instance the PyTorch build ran out of memory on. The image analysis in `estimate.py` runs in row strips, with results identical to whole-image processing, so a 12-megapixel phone photo peaks near 460 MB. The 98 MB encoder is a GitHub release asset, downloaded with a SHA-256 check on first use.
+
+**Serving.** Flask with SQLAlchemy and SQLite, two static pages, and CORS enabled. Uploads are converted to JPEG. Render runs it under gunicorn with one worker, two threads, and a 180-second timeout; on Vercel the database is copied to `/tmp` and uploads are written there and not served back.
 
 ## Run it
 
 ```bash
-pip install -r requirements.txt     # Python 3.12; first run downloads CLIP (and BLIP when captioning)
+pip install -r requirements.txt     # Python 3.12; the 98 MB ONNX image encoder downloads on first run
 python app.py                       # http://localhost:5000, estimate page at /estimate
 python test_all.py                  # database, routes, upload, and estimate smoke test
 ```
 
-The committed database is ready to use. To rebuild or check the catalog: `migrate_db.py`, `assign_splits.py`, `seed_bearing_dataset.py`, `sync_catalog_metadata.py`, `build_robust_catalog.py`, and `download_industrial_images.py` (optional, Wikimedia Commons). `evaluate_dataset.py`, `robust_identification_eval.py`, and `audit_data_leakage.py` score the held-out split. `render.yaml` deploys to Render. Git deploys to Vercel are switched off in `vercel.json`: PyTorch alone is larger than Vercel's 500 MB function limit, so the Vercel paths in `runtime_config.py` only apply to a manual deploy with a slimmer model.
+Serving needs only `requirements.txt`. `requirements-dev.txt` adds PyTorch, Transformers, and ONNX for `export_onnx.py`, BLIP captions, and the catalog scripts that caption images.
+
+The committed database is ready to use. To rebuild or check the catalog: `migrate_db.py`, `assign_splits.py`, `seed_bearing_dataset.py`, `sync_catalog_metadata.py`, `build_robust_catalog.py`, and `download_industrial_images.py` (optional, Wikimedia Commons). `evaluate_dataset.py`, `robust_identification_eval.py`, and `audit_data_leakage.py` score the held-out split. `render.yaml` deploys to Render and fetches the encoder at build time. Git deploys to Vercel are switched off in `vercel.json`.
 
 ## Layout
 
 ```
 app.py                      Flask routes: identify, estimate, catalog, add reference, health
 similarity.py               CLIP matcher, visual signature, family scoring, hybrid ranking
+clip_onnx.py                CLIP preprocessing, ONNX Runtime image encoder, checksummed model download
+export_onnx.py              exports and quantizes the encoder, precomputes family prompt embeddings
+fetch_model.py              downloads the encoder ahead of the first request
+models/                     family_prompts.json (committed) and the downloaded encoder
 similarity_config.json      tuned ranking weights
 estimate.py                 component profiles, condition masks, sizing, surface area, pricing
 catalog_metadata.py         hand labels for the source photos
-caption.py                  BLIP captions for new references
+caption.py                  BLIP captions for new references (development requirements)
 database.py                 ImageRecord model, families, splits
 runtime_config.py           local vs Vercel paths
 static/                     index.html (identify, catalog, add) and estimate.html
@@ -89,6 +97,7 @@ assign_splits.py  migrate_db.py  sync_catalog_metadata.py  update_labels.py     
 evaluate_dataset.py  robust_identification_eval.py  tune_similarity.py  audit_data_leakage.py   evaluation
 test_all.py                 end-to-end smoke test
 render.yaml  Procfile  vercel.json  run.sh   deployment
+requirements.txt  requirements-dev.txt        serving and development dependencies
 ```
 
 ## Data

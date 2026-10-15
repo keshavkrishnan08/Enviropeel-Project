@@ -14,6 +14,7 @@ import numpy as np
 from PIL import Image
 
 from catalog_metadata import REFERENCE_IMAGE_METADATA, lookup_reference_profile, normalize_project_label
+from clip_onnx import to_rgb
 
 
 COATING_TYPES = {
@@ -166,30 +167,45 @@ def _safe_caption(image_path):
         return "Industrial component"
 
 
-def analyze_visual_features(image_path):
-    """Measure visual cues that help condition and scale estimation."""
-    img = Image.open(image_path).convert("RGB")
-    arr = np.asarray(img, dtype=np.float32) / 255.0
-    gray = arr.mean(axis=2)
-    gy, gx = np.gradient(gray)
-    edge_magnitude = np.sqrt(gx ** 2 + gy ** 2)
-    edge_ratio = float(np.mean(edge_magnitude > 0.10))
+def analyze_visual_features(image_path, rows_per_strip=256):
+    """Measure visual cues that help condition and scale estimation.
 
-    r = arr[:, :, 0]
-    g = arr[:, :, 1]
-    b = arr[:, :, 2]
-    sat = arr.max(axis=2) - arr.min(axis=2)
+    The photo is processed in horizontal strips so a 12-megapixel upload stays within a small
+    server's memory. Each strip carries one extra row above and below, so the vertical gradient
+    matches a whole-image np.gradient exactly.
+    """
+    img = to_rgb(Image.open(image_path))
+    width, height = img.size
+    edge_count = rust_count = painted_count = object_count = 0
 
-    rust_mask = (r > 0.38) & (r > g * 1.08) & (g > b * 1.03) & (sat > 0.10)
-    blue_mask = (b > 0.35) & (b > r * 1.08) & (b > g * 1.05)
-    yellow_mask = (r > 0.55) & (g > 0.45) & (b < 0.30)
-    white_mask = (gray > 0.72) & (sat < 0.10)
-    painted_mask = blue_mask | yellow_mask | white_mask
-    object_mask = (gray > 0.10) & (gray < 0.95)
+    for top in range(0, height, rows_per_strip):
+        bottom = min(top + rows_per_strip, height)
+        lo, hi = max(top - 1, 0), min(bottom + 1, height)
+        arr = np.asarray(img.crop((0, lo, width, hi)), dtype=np.float32) / 255.0
+        gy, gx = np.gradient(arr.mean(axis=2))
+        keep = slice(top - lo, top - lo + bottom - top)
+        arr, gx, gy = arr[keep], gx[keep], gy[keep]
+        gray = arr.mean(axis=2)
+        edge_count += int(np.count_nonzero(np.sqrt(gx ** 2 + gy ** 2) > 0.10))
 
-    rust_ratio = float(np.mean(rust_mask))
-    coated_ratio = float(np.mean(painted_mask))
-    object_fill = float(np.mean(object_mask))
+        r = arr[:, :, 0]
+        g = arr[:, :, 1]
+        b = arr[:, :, 2]
+        sat = arr.max(axis=2) - arr.min(axis=2)
+
+        rust_mask = (r > 0.38) & (r > g * 1.08) & (g > b * 1.03) & (sat > 0.10)
+        blue_mask = (b > 0.35) & (b > r * 1.08) & (b > g * 1.05)
+        yellow_mask = (r > 0.55) & (g > 0.45) & (b < 0.30)
+        white_mask = (gray > 0.72) & (sat < 0.10)
+        rust_count += int(np.count_nonzero(rust_mask))
+        painted_count += int(np.count_nonzero(blue_mask | yellow_mask | white_mask))
+        object_count += int(np.count_nonzero((gray > 0.10) & (gray < 0.95)))
+
+    total = float(width * height)
+    edge_ratio = edge_count / total
+    rust_ratio = rust_count / total
+    coated_ratio = painted_count / total
+    object_fill = object_count / total
 
     if edge_ratio > 0.12:
         complexity = "high"
